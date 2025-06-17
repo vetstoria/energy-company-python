@@ -94,13 +94,6 @@ Example readings
 | `2020-11-29 8:03` |      1606636980 |         0.0423 |
 | `2020-11-29 8:04` |      1606637040 |         0.0191 |
 
-In the above example, the smart meter sampled readings, in `kW`, every minute. Note that the reading is in `kW` and
-not `kWH`, which means that each reading represents the consumption at the reading time. If no power is being consumed
-at the time of reading, then the reading value will be `0`. Given that `0` may introduce new challenges, we can assume
-that there is always some consumption, and we will never have a `0` reading value. These readings are then sent by the
-smart meter to the application using REST. There is a service in the application that calculates the `kWH` from these
-readings.
-
 The following POST request, is an example request using CURL, sends the readings shown in the table above.
 
 ```console
