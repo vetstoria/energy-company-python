@@ -1,18 +1,3 @@
-## Users
-
-To trial the new JOI software 5 people from the JOI accounts team have agreed to test the service and share their energy
-data.
-
-| User    | Smart Meter ID  | Power Supplier        |
-| ------- | --------------- | --------------------- |
-| Sarah   | `smart-meter-0` | Dr Evil's Dark Energy |
-| Peter   | `smart-meter-1` | The Green Eco         |
-| Charlie | `smart-meter-2` | Dr Evil's Dark Energy |
-| Andrea  | `smart-meter-3` | Power for Everyone    |
-| Alex    | `smart-meter-4` | The Green Eco         |
-
-These values are used in the code and in the following examples too.
-
 ## Requirements
 
 The project requires [Python 3.12](https://www.python.org/downloads/release/python-3120/) or higher and the [Poetry](https://python-poetry.org/) package manager.
