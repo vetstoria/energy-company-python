@@ -1,19 +1,39 @@
+from __future__ import annotations
+
+from typing import List
+
+from ..domain.electricity_reading import ElectricityReading
+from ..db import database, electricity_readings
+
+
 class ElectricityReadingRepository:
-    def __init__(self):
-        self.meter_associated_readings = {}
+    """
+    Async MySQL-backed repository (databases + SQLAlchemy Core).
+    """
 
-    def store(self, smart_meter_id, readings):
-        if smart_meter_id in self.meter_associated_readings:
-            existing_list_of_readings = self.meter_associated_readings.get(smart_meter_id)
-            self.meter_associated_readings[smart_meter_id] = readings + existing_list_of_readings
-        else:
-            self.meter_associated_readings[smart_meter_id] = readings
+    async def store(self, smart_meter_id: str, readings: List[ElectricityReading]):
+        values = [
+            {
+                "smart_meter_id": smart_meter_id,
+                "time": reading.time,
+                "reading": reading.reading,
+            }
+            for reading in readings
+        ]
+        query = electricity_readings.insert()
+        await database.execute_many(query, values)
+        return readings  # keep existing behaviour
 
-    def find(self, smart_meter_id):
-        if smart_meter_id in self.meter_associated_readings:
-            return self.meter_associated_readings[smart_meter_id]
-        else:
-            return []
+    async def find(self, smart_meter_id: str) -> List[ElectricityReading]:
+        query = electricity_readings.select().where(
+            electricity_readings.c.smart_meter_id == smart_meter_id
+        )
+        rows = await database.fetch_all(query)
+        return [
+            ElectricityReading({"time": row["time"], "reading": row["reading"]})
+            for row in rows
+        ]
 
-    def clear(self):
-        self.meter_associated_readings = {}
+
+# Singleton instance
+electricity_reading_repository = ElectricityReadingRepository()
