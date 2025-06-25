@@ -19,11 +19,14 @@ async def store_readings(
     try:
         return await service.store_reading(payload)
     except KeyError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/read/{smart_meter_id}")
 async def read_readings(
     smart_meter_id: str, service: ElectricityReadingService = Depends(_service)
 ):
-    return await service.retrieve_readings_for(smart_meter_id)
+    readings = await service.retrieve_readings_for(smart_meter_id)
+    if not readings:
+        raise HTTPException(status_code=404, detail="No readings found for this smart meter.")
+    return readings
