@@ -16,6 +16,7 @@ databases = { extras = ["aiomysql"], version = "0.9.0" }
 aiomysql = "0.2.0"
 sqlalchemy = ">=2.0.7,<3.0"
 cryptography = "^42.0.5"
+python-dotenv = "^1.1.1"
 
 [tool.poetry.group.tests]
 optional = true
