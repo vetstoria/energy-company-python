@@ -13,6 +13,7 @@ from .repository.electricity_reading_repository import (
 )
 from .repository.price_plan_repository import price_plan_repository
 from .domain.electricity_reading import ElectricityReading
+from .repository.smart_meter_repository import smart_meter_repository
 
 DR_EVILS_DARK_ENERGY_ENERGY_SUPPLIER = "Dr Evil's Dark Energy"
 THE_GREEN_ECO_ENERGY_SUPPLIER = "The Green Eco"
@@ -53,7 +54,14 @@ async def _populate_price_plans():
     ]
     await price_plan_repository.store(price_plans)
 
+async def _populate_smart_meters():
+    for index in range(NUM_METERS):
+        smart_meter_id = f"smart-meter-{index}"
+        price_plan_id = [MOST_EVIL_PRICE_PLAN_ID, RENEWBLES_PRICE_PLAN_ID, STANDARD_PRICE_PLAN_ID][index % 3]
+        await smart_meter_repository.store(smart_meter_id, price_plan_id)
+
 
 async def initialize_data():
-    await _populate_random_electricity_readings()
     await _populate_price_plans()
+    await _populate_smart_meters()
+    await _populate_random_electricity_readings()
