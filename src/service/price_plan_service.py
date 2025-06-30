@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from functools import reduce
 from typing import List
+from fastapi import HTTPException
 
 from ..repository.price_plan_repository import price_plan_repository
 from .electricity_reading_service import ElectricityReadingService
@@ -29,11 +30,20 @@ class PricePlanService:
         readings = await self.electricity_reading_service.retrieve_readings_for(
             smart_meter_id
         )
-        if len(readings) < 1:
-            return []
+        if len(readings) < 2:
+            raise HTTPException(
+                status_code=422,
+                detail="Not enough readings to calculate usage. At least 2 readings are required."
+            )
 
         average = self._calculate_average_reading(readings)
         time_elapsed = _calculate_time_elapsed(readings)
+        if time_elapsed == 0:
+            raise HTTPException(
+                status_code=422,
+                detail="Invalid readings: timestamps must not all be equal."
+            )
+
         consumed_energy = average / time_elapsed
 
         price_plans = await price_plan_repository.get()

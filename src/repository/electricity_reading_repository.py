@@ -1,9 +1,15 @@
+# src/repository/electricity_reading_repository.py
+
 from __future__ import annotations
 
 from typing import List
 
 from ..domain.electricity_reading import ElectricityReading
 from ..db import database, electricity_readings
+from ..repository.smart_meter_repository import smart_meter_repository
+
+# Default price plan ID to assign when a new smart meter is seen
+DEFAULT_PRICE_PLAN_ID = "price-plan-0"
 
 
 class ElectricityReadingRepository:
@@ -12,6 +18,10 @@ class ElectricityReadingRepository:
     """
 
     async def store(self, smart_meter_id: str, readings: List[ElectricityReading]):
+        # 1) Ensure the smart_meter is registered (INSERT IGNORE in repo)
+        await smart_meter_repository.store(smart_meter_id, DEFAULT_PRICE_PLAN_ID)
+
+        # 2) Store the actual readings
         values = [
             {
                 "smart_meter_id": smart_meter_id,
