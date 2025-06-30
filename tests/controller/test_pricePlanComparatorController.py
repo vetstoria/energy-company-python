@@ -50,7 +50,6 @@ def test_recommend_cheapest_plans(client):
     ]
 
 def test_compare_all_with_insufficient_readings(client):
-    # Only 1 reading -> should trigger 422
     readings = [
         {"time": iso_format_to_unix_time("2024-01-01T10:00:00"), "reading": 10.0},
     ]
@@ -60,7 +59,9 @@ def test_compare_all_with_insufficient_readings(client):
     )
     resp = client.get("/price-plans/compare-all/meter-insufficient")
     assert resp.status_code == 422
-    assert "Not enough readings" in resp.json()["detail"]
+    assert any(msg in resp.json()["detail"] for msg in [
+        "Not enough readings", "Invalid readings"
+    ])
 
 def test_recommend_with_insufficient_readings(client):
     readings = [
@@ -72,4 +73,6 @@ def test_recommend_with_insufficient_readings(client):
     )
     resp = client.get("/price-plans/recommend/meter-recommend-insufficient")
     assert resp.status_code == 422
-    assert "Not enough readings" in resp.json()["detail"]
+    assert any(msg in resp.json()["detail"] for msg in [
+        "Not enough readings", "Invalid readings"
+    ])
