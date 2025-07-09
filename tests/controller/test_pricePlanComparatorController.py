@@ -2,46 +2,45 @@ import pytest
 from fastapi.testclient import TestClient
 from src.main import app
 from src.service.time_converter import iso_format_to_unix_time
+import uuid
 
 @pytest.fixture
 def client():
     with TestClient(app) as c:
         yield c
 
-def _seed_readings(client):
-    """Put some readings into the DB so /compare-all has data to work with."""
+def _generate_meter_id():
+    return f"test-meter-{uuid.uuid4()}"
+
+def test_compare_all_price_plans(client):
+    meter_id = _generate_meter_id()
     readings = [
         {"time": iso_format_to_unix_time("2020-01-05T10:00:00"), "reading": 10.0},
         {"time": iso_format_to_unix_time("2020-01-05T11:00:00"), "reading": 20.0},
     ]
     client.post(
         "/readings/store",
-        json={"smartMeterId": "smart-meter-0", "electricityReadings": readings},
+        json={"smartMeterId": meter_id, "electricityReadings": readings},
     )
 
-def test_compare_all_price_plans(client):
-    _seed_readings(client)
-
-    resp = client.get("/price-plans/compare-all/smart-meter-0")
+    resp = client.get(f"/price-plans/compare-all/{meter_id}")
     assert resp.status_code == 200
     body = resp.json()
-
-    # The exact cheapest plan depends on price-plan data loaded at start-up,
-    # so we only assert that one of the known plan-IDs is chosen.
     assert body["pricePlanId"] in {"price-plan-0", "price-plan-1", "price-plan-2"}
     assert len(body["pricePlanComparisons"]) == 3
 
 def test_recommend_cheapest_plans(client):
+    meter_id = _generate_meter_id()
     readings = [
         {"time": iso_format_to_unix_time("2020-01-05T10:30:00"), "reading": 35.0},
         {"time": iso_format_to_unix_time("2020-01-05T11:00:00"), "reading": 5.0},
     ]
     client.post(
         "/readings/store",
-        json={"smartMeterId": "meter-103", "electricityReadings": readings},
+        json={"smartMeterId": meter_id, "electricityReadings": readings},
     )
 
-    resp = client.get("/price-plans/recommend/meter-103")
+    resp = client.get(f"/price-plans/recommend/{meter_id}")
     assert resp.status_code == 200
     assert resp.json() == [
         {"price-plan-2": 40.0},
@@ -50,28 +49,30 @@ def test_recommend_cheapest_plans(client):
     ]
 
 def test_compare_all_with_insufficient_readings(client):
+    meter_id = _generate_meter_id()
     readings = [
         {"time": iso_format_to_unix_time("2024-01-01T10:00:00"), "reading": 10.0},
     ]
     client.post(
         "/readings/store",
-        json={"smartMeterId": "meter-insufficient", "electricityReadings": readings},
+        json={"smartMeterId": meter_id, "electricityReadings": readings},
     )
-    resp = client.get("/price-plans/compare-all/meter-insufficient")
+    resp = client.get(f"/price-plans/compare-all/{meter_id}")
     assert resp.status_code == 422
     assert any(msg in resp.json()["detail"] for msg in [
         "Not enough readings", "Invalid readings"
     ])
 
 def test_recommend_with_insufficient_readings(client):
+    meter_id = _generate_meter_id()
     readings = [
         {"time": iso_format_to_unix_time("2024-01-01T10:00:00"), "reading": 15.0},
     ]
     client.post(
         "/readings/store",
-        json={"smartMeterId": "meter-recommend-insufficient", "electricityReadings": readings},
+        json={"smartMeterId": meter_id, "electricityReadings": readings},
     )
-    resp = client.get("/price-plans/recommend/meter-recommend-insufficient")
+    resp = client.get(f"/price-plans/recommend/{meter_id}")
     assert resp.status_code == 422
     assert any(msg in resp.json()["detail"] for msg in [
         "Not enough readings", "Invalid readings"
