@@ -1,4 +1,5 @@
 from http import HTTPStatus
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
@@ -10,21 +11,21 @@ from .db import create_tables, database
 from .router import api_router
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup phase
+    create_tables()
+    await database.connect()
+    await initialize_data()
+
+    yield  # ⬅ app runs while suspended here
+
+    # Shutdown phase
+    await database.disconnect()
+
+
 def create_app() -> FastAPI:
-    app = FastAPI(title="EnergyCompany (MySQL)")
-
-    # --------------------------------------------------------------------- #
-    # Lifespan events                                                       #
-    # --------------------------------------------------------------------- #
-    @app.on_event("startup")
-    async def _startup() -> None:
-        create_tables()  # idempotent DDL
-        await database.connect()
-        await initialize_data()
-
-    @app.on_event("shutdown")
-    async def _shutdown() -> None:
-        await database.disconnect()
+    app = FastAPI(title="EnergyCompany (MySQL)", lifespan=lifespan)
 
     # --------------------------------------------------------------------- #
     # Routers & error handling                                              #
