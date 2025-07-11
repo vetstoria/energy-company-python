@@ -1,49 +1,60 @@
-import unittest
+import pytest
 from http import HTTPStatus
-
 from fastapi.testclient import TestClient
-
 from src.main import app
+import uuid
 
+@pytest.fixture
+def client():
+    with TestClient(app) as c:
+        yield c
 
-class TestElectricityReadingController(unittest.TestCase):
-    def setUp(self):
-        self.client = TestClient(app)
+def _generate_meter_id():
+    return f"meter-{uuid.uuid4()}"
 
-    def test_successfully_add_the_reading_against_new_smart_meter_id(self):
-        readingJson = {"smartMeterId": "meter-11", "electricityReadings": [{"time": 1505825656, "reading": 0.6}]}
+def test_store_reading_new_meter(client):
+    payload = {
+        "smartMeterId": _generate_meter_id(),
+        "electricityReadings": [{"time": 1505825656, "reading": 0.6}],
+    }
+    resp = client.post("/readings/store", json=payload)
+    assert resp.status_code == HTTPStatus.CREATED
 
-        response = self.client.post("/readings/store", json=readingJson)
-        self.assertEqual(200, response.status_code)
+def test_store_reading_existing_meter(client):
+    meter_id = _generate_meter_id()
+    first = {
+        "smartMeterId": meter_id,
+        "electricityReadings": [
+            {"time": 1505825838, "reading": 0.6},
+            {"time": 1505825848, "reading": 0.65},
+        ],
+    }
+    second = {
+        "smartMeterId": meter_id,
+        "electricityReadings": [{"time": 1605825849, "reading": 0.7}],
+    }
 
-    def test_successfully_add_the_reading_against_existing_smart_meter_id(self):
-        readingJson1 = {
-            "smartMeterId": "meter-100",
-            "electricityReadings": [
-                {"time": 1505825838, "reading": 0.6},
-                {"time": 1505825848, "reading": 0.65},
-            ],
-        }
+    client.post("/readings/store", json=first)
+    client.post("/readings/store", json=second)
 
-        readingJson2 = {"smartMeterId": "meter-100", "electricityReadings": [{"time": 1605825849, "reading": 0.7}]}
+    readings = client.get(f"/readings/read/{meter_id}").json()
+    assert {"time": 1505825838, "reading": 0.6} in readings
+    assert {"time": 1505825848, "reading": 0.65} in readings
+    assert {"time": 1605825849, "reading": 0.7} in readings
 
-        self.client.post("/readings/store", json=readingJson1)
-        self.client.post("/readings/store", json=readingJson2)
-        readings = self.client.get("/readings/read/meter-100").json()
-        self.assertIn({"time": 1505825838, "reading": 0.6}, readings)
-        self.assertIn({"time": 1505825848, "reading": 0.65}, readings)
-        self.assertIn({"time": 1605825849, "reading": 0.7}, readings)
+def test_no_readings_returns_404(client):
+    # Use a guaranteed non-existent smart meter ID
+    meter_id = f"non-existent-meter-{uuid.uuid4()}"
+    resp = client.get(f"/readings/read/{meter_id}")
+    assert resp.status_code == HTTPStatus.NOT_FOUND
 
-    def test_respond_with_404_when_no_readings_found(self):
-        response = self.client.get("/readings/read/meter-100")
-        assert response.status_code == HTTPStatus.NOT_FOUND
-
-    def test_respond_with_error_if_smart_meter_id_not_set(self):
-        readingJson = {"electricityReadings": [{"time": 1505825838, "reading": 0.6}]}
-
-        assert self.client.post("/readings/store", json=readingJson).status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-
-    def test_respond_with_error_if_electricity_readings_not_set(self):
-        readingJson = {"smartMeterId": "meter-11"}
-
-        assert self.client.post("/readings/store", json=readingJson).status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"electricityReadings": []},     # missing smartMeterId
+        {"smartMeterId": "x"},           # missing readings
+    ],
+)
+def test_validation_errors(client, payload):
+    # FastAPI uses 422 for validation errors by default
+    assert client.post("/readings/store", json=payload).status_code == 422

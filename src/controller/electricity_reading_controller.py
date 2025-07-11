@@ -1,36 +1,32 @@
-from http import HTTPStatus
-from typing import List
+from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Path
+from fastapi import APIRouter, Depends, HTTPException, status
 
-from ..repository.electricity_reading_repository import ElectricityReadingRepository
 from ..service.electricity_reading_service import ElectricityReadingService
-from .models import OPENAPI_EXAMPLES, ElectricReading, Readings
 
-repository = ElectricityReadingRepository()
-service = ElectricityReadingService(repository)
-
-router = APIRouter(prefix="/readings", tags=["Readings"])
+router = APIRouter(prefix="/readings", tags=["readings"])
 
 
-@router.post(
-    "/store",
-    response_model=ElectricReading,
-    description="Store Readings",
-)
-def store(data: ElectricReading):
-    service.store_reading(data.model_dump(mode="json"))
-    return data
+def _service() -> ElectricityReadingService:
+    # Simple dependency so we can override in tests later
+    return ElectricityReadingService()
 
 
-@router.get(
-    "/read/{smart_meter_id}",
-    response_model=List[Readings],
-    description="Get Stored Readings",
-)
-def read(smart_meter_id: str = Path(openapi_examples=OPENAPI_EXAMPLES)):
-    readings = service.retrieve_readings_for(smart_meter_id)
-    if len(readings) < 1:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="No readings found")
-    else:
-        return [r.to_json() for r in readings]
+@router.post("/store", status_code=status.HTTP_201_CREATED)
+async def store_readings(
+    payload: dict, service: ElectricityReadingService = Depends(_service)
+):
+    try:
+        return await service.store_reading(payload)
+    except KeyError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.get("/read/{smart_meter_id}")
+async def read_readings(
+    smart_meter_id: str, service: ElectricityReadingService = Depends(_service)
+):
+    readings = await service.retrieve_readings_for(smart_meter_id)
+    if not readings:
+        raise HTTPException(status_code=404, detail="No readings found for this smart meter.")
+    return readings

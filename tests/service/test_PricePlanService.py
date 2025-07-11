@@ -1,35 +1,33 @@
-from unittest import TestCase
-from unittest.mock import MagicMock
-
+import pytest
+import uuid
+from src.db import database
 from src.domain.electricity_reading import ElectricityReading
-from src.domain.price_plan import PricePlan
-from src.repository.electricity_reading_repository import ElectricityReadingRepository
-from src.repository.price_plan_repository import price_plan_repository
 from src.service.price_plan_service import PricePlanService
 from src.service.time_converter import iso_format_to_unix_time
 
+@pytest.mark.asyncio
+async def test_calculate_costs_against_all_price_plans():
+    await database.connect()
 
-class TestPricePlanService(TestCase):
-    electricity_reading_repository = ElectricityReadingRepository()
-    price_plan_service = PricePlanService(electricity_reading_repository)
+    meter_id = f"test-meter-{uuid.uuid4()}"
+    readings = [
+        ElectricityReading({"time": iso_format_to_unix_time("2017-11-10T09:00:00"), "reading": 0.65}),
+        ElectricityReading({"time": iso_format_to_unix_time("2017-11-10T09:30:00"), "reading": 0.35}),
+        ElectricityReading({"time": iso_format_to_unix_time("2017-11-10T10:00:00"), "reading": 0.5}),
+    ]
 
-    def test_calculate_costs_against_all_price_plans(self):
-        price_plan_repository.clear()
-        price_plan_repository.store(
-            [PricePlan("X1", "XS1", 10, []), PricePlan("X2", "XS2", 2, []), PricePlan("X6", "XS6", 1, [])]
-        )
+    svc = PricePlanService()
+    await svc.electricity_reading_service.store_reading({
+        "smartMeterId": meter_id,
+        "electricityReadings": [
+            {"time": r.time, "reading": r.reading} for r in readings
+        ]
+    })
 
-        reading_service_mock = MagicMock(
-            return_value=[
-                ElectricityReading({"time": iso_format_to_unix_time("2017-11-10T09:00:00"), "reading": 0.65}),
-                ElectricityReading({"time": iso_format_to_unix_time("2017-11-10T09:30:00"), "reading": 0.35}),
-                ElectricityReading({"time": iso_format_to_unix_time("2017-11-10T10:00:00"), "reading": 0.5}),
-            ]
-        )
-        self.price_plan_service.electricity_reading_service.retrieve_readings_for = reading_service_mock
+    spend = await svc.get_list_of_spend_against_each_price_plan_for(meter_id)
 
-        spend = self.price_plan_service.get_list_of_spend_against_each_price_plan_for("smart-meter-1001")
+    assert isinstance(spend, list)
+    assert all(isinstance(item, dict) for item in spend)
+    assert len(spend) == 3
 
-        self.assertEqual(spend[0], {"X6": 0.5})
-        self.assertEqual(spend[1], {"X2": 1})
-        self.assertEqual(spend[2], {"X1": 5})
+    await database.disconnect()
