@@ -1,25 +1,24 @@
 ## Requirements
 
-The project requires [Python 3.12](https://www.python.org/downloads/release/python-3120/) or higher and the [Poetry](https://python-poetry.org/) package manager.
+The project requires [Java 17](https://www.oracle.com/java/technologies/javase/jdk17-archive-downloads.html) or higher and [Maven](https://maven.apache.org/) 3.6+.
 
-## Useful Python commands
+## Useful commands
 
 ### Installation
 
-After installing poetry, install the project dependencies with:
+After installing Maven, install the project dependencies with:
 
 ```console
-poetry install --with ci,tests
+mvn clean install
 ```
-This will install main dependencies together with optional ones.
-For more information see [optional groups](https://python-poetry.org/docs/managing-dependencies#optional-groups) settings.
+This will download all dependencies and build the project.
 
 ### Run the tests
 
 Run all tests
 
 ```console
-poetry run pytest
+mvn test
 ```
 
 ### Run the application
@@ -27,7 +26,7 @@ poetry run pytest
 Run the application which will be listening on port `8020`.
 
 ```console
-poetry run python app.py
+mvn spring-boot:run
 ```
 
 ### Building Docker Image
@@ -52,7 +51,6 @@ to [run the application](#run-the-application) section above.
 The application will automatically generate documentations and provide them under:
 
 - [Swagger UI](https://github.com/swagger-api/swagger-ui) > http://localhost:8020/docs
-- [ReDoc](https://github.com/Redocly/redoc) > http://localhost:8020/redoc
 
 ### Store Readings
 

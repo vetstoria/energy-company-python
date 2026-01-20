@@ -1,33 +1,28 @@
-FROM python:3.12-slim AS builder
-RUN useradd -rm -d /home/user -u 1001 user && \
-    mkdir -p /home/user/app && \
-    chown -R user /home/user/app
-USER user
+# Build stage
+FROM maven:3.9-eclipse-temurin-17 AS builder
+WORKDIR /app
 
-WORKDIR /home/user/
+# Copy pom.xml and download dependencies
+COPY pom.xml .
+RUN mvn dependency:go-offline -B
 
-COPY app.py poetry.lock pyproject.toml README.md app/
-COPY src/ app/src/
+# Copy source code (including test files)
+COPY src ./src
 
-WORKDIR /home/user/app
+# Build and run tests (remove -DskipTests to run tests during build)
+# For faster builds without tests, use: RUN mvn clean package -DskipTests
+RUN mvn clean package
 
-ENV HOME="/home/user"
-ENV PATH="${HOME}/.local/bin:${PATH}"
+# Runtime stage
+FROM eclipse-temurin:17-jre-alpine
+RUN addgroup -S spring && adduser -S spring -G spring
+USER spring:spring
 
-RUN pip install poetry==1.8.1 --user --no-cache-dir && \
-    poetry config virtualenvs.in-project true && \
-    poetry install --only main
+WORKDIR /app
 
-FROM python:3.12-slim
-RUN useradd -rm -d /home/user -u 1001 user && \
-    mkdir -p /home/user/app && \
-    chown -R user /home/user/app
-USER user
+# Copy the built JAR from builder stage
+COPY --from=builder /app/target/*.jar app.jar
 
-COPY --from=builder /home/user/app/ /home/user/app/
-ENV PATH=/home/user/app/.venv/bin:$PATH
-ENV PYTHONUNBUFFERED=1
+EXPOSE 8020
 
-WORKDIR /home/user/app
-
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8020"]
+ENTRYPOINT ["java", "-jar", "app.jar"]
