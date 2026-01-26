@@ -55,7 +55,7 @@ smart_meters = sa.Table(
     sa.Column("id", sa.BigInteger, primary_key=True, autoincrement=True),
     sa.Column("smart_meter_id", sa.String(64), nullable=False, unique=True),
     sa.Column("price_plan_id", sa.BigInteger,
-              sa.ForeignKey("price_plans.id"), nullable=False),                # ⇽ FK now targets price_plans.id
+              sa.ForeignKey("price_plans.id"), nullable=True),                # ⇽ FK now targets price_plans.id
 )
 
 electricity_readings = sa.Table(
